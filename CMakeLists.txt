@@ -8,8 +8,11 @@ set(CMAKE_CXX_FLAGS, "${CXX_FLAGS}")
 project(camera_fusion)
 
 find_package(OpenCV 4.1 REQUIRED)
-
-include_directories(${OpenCV_INCLUDE_DIRS})
+ 
+include_directories(
+    ${OpenCV_INCLUDE_DIRS}
+    include
+)
 link_directories(${OpenCV_LIBRARY_DIRS})
 add_definitions(${OpenCV_DEFINITIONS})
 
