@@ -48,7 +48,7 @@ void matchDescriptors(
         }
         else
         {
-            throw std::runtime_error("Flann::Descriptor type not known!");
+            throw std::runtime_error("Matcher type not known!");
         }
 
         matcher = cv::BFMatcher::create(normType, crossCheck);
