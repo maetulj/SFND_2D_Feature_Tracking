@@ -4,27 +4,44 @@
 
 using namespace std;
 
-// Find best matches for keypoints in two camera images based on several matching methods
-void matchDescriptors(std::vector<cv::KeyPoint> &kPtsSource, std::vector<cv::KeyPoint> &kPtsRef, cv::Mat &descSource, cv::Mat &descRef,
-                      std::vector<cv::DMatch> &matches, std::string descriptorType, std::string matcherType, std::string selectorType)
+/**
+ * Find the match for keypoints in two camera images using the descriptors.
+ * 
+ * @param kPtsSource <std::vector<cv::KeyPoint>> Source keypoints.
+ * @param kPtsRef <std::vector<cv::KeyPoint>> Reference keypoints.
+ * @param descSource <cv::Mat> Descriptor source.
+ * @param descRef <cv::Mat> Descriptor reference.
+ * @param matches <std::vector<cv::DMatch>> Matches.
+ * @param descriptorTypeCategory <std::string> Category of the descriptor (either DES_HOG or DES_BINARY).
+ * @param matcherType <std::string> Type of the matcher (MAT_BF or MAT_FLANN).
+ * @param selectorType <std::string> Type of the selector (SEL_NN or SEL_KNN).
+ */
+void matchDescriptors(
+    std::vector<cv::KeyPoint> &kPtsSource, 
+    std::vector<cv::KeyPoint> &kPtsRef, 
+    cv::Mat &descSource, 
+    cv::Mat &descRef,
+    std::vector<cv::DMatch> &matches, 
+    std::string descriptorTypeCategory, 
+    std::string matcherType, 
+    std::string selectorType
+)
 {
     // configure matcher
-    bool crossCheck = false;
+    bool crossCheck = true;
     cv::Ptr<cv::DescriptorMatcher> matcher;
 
     // Brute-Force matching.
     if (matcherType.compare("MAT_BF") == 0)
     {
-        std::cout << "MAT_BF" << std::endl;
-
         int normType;
 
         // If it is a HOG type (e.g. SIFT) use Euclidean distance.
-        if (descriptorType.compare("DES_HOG") == 0)
+        if (descriptorTypeCategory.compare("DES_HOG") == 0)
         {
             normType = cv::NORM_L2;
         }
-        else if (descriptorType.compare("DES_BINARY") == 0)
+        else if (descriptorTypeCategory.compare("DES_BINARY") == 0)
         {
             // For binary descriptors use Hamming distance.
             normType = cv::NORM_HAMMING;
@@ -39,14 +56,12 @@ void matchDescriptors(std::vector<cv::KeyPoint> &kPtsSource, std::vector<cv::Key
     else if (matcherType.compare("MAT_FLANN") == 0)
     {
         // Flann matching.
-        std::cout << "MAT_FLANN" << std::endl;
-
         // HOG based descriptor.
-        if (descriptorType.compare("DES_HOG"))
+        if (descriptorTypeCategory.compare("DES_HOG") == 0)
         {
             matcher = cv::FlannBasedMatcher::create();
         }
-        else if (descriptorType.compare("DES_BINARY"))
+        else if (descriptorTypeCategory.compare("DES_BINARY") == 0)
         {
             const int table_number = 12;
             const int key_size = 20;
@@ -104,7 +119,6 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     cv::Ptr<cv::DescriptorExtractor> extractor;
     if (descriptorType.compare("BRISK") == 0)
     {
-        std::cout << "descriptor: BRISK" << std::endl;
         int threshold = 30;        // FAST/AGAST detection threshold score.
         int octaves = 3;           // detection octaves (use 0 to do single scale)
         float patternScale = 1.0f; // apply this scale to the pattern used for sampling the neighbourhood of a keypoint.
@@ -113,7 +127,6 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else if (descriptorType.compare("BRIEF") == 0)
     {
-        std::cout << "descriptor: BRIEF" << std::endl;
         const int bytes = 32;
         const bool use_orientation = false;
 
@@ -121,7 +134,6 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else if (descriptorType.compare("ORB") == 0)
     {
-        std::cout << "descriptor: ORB" << std::endl;
         const int features = 500;
         const float scale_factor = 1.2f;
         const int nlevels = 8;
@@ -146,7 +158,6 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else if (descriptorType.compare("FREAK") == 0)
     {
-        std::cout << "descriptor: FREAK" << std::endl;
         const bool orientation_normalized = true;
         const bool scale_normalized = true;
         const float pattern_scale = 22.0f;
@@ -163,7 +174,6 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else if (descriptorType.compare("AKAZE") == 0)
     {
-        std::cout << "descriptor: AKAZE" << std::endl;
         const cv::AKAZE::DescriptorType descriptor_type = cv::AKAZE::DESCRIPTOR_MLDB;
         const int descriptor_size = 0;
         const int descriptor_channels = 3;
@@ -184,7 +194,6 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
     else if (descriptorType.compare("SIFT") == 0)
     {
-        std::cout << "descriptor: SIFT" << std::endl;
         const int n_features = 0;
         const int n_octave_layers = 3;
         const double contrast_threshold = 0.04;
@@ -205,16 +214,12 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
     }
 
     // perform feature description
-    double t = (double)cv::getTickCount();
     extractor->compute(img, keypoints, descriptors);
-    t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
-    cout << descriptorType << " descriptor extraction in " << 1000 * t / 1.0 << " ms" << endl;
 }
 
 // Detect keypoints in image using the traditional Shi-Thomasi detector
 void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool bVis)
 {
-    std::cout << "Detector: SHITOMASI" << std::endl;
     // compute detector parameters based on image size
     int blockSize = 4;       //  size of an average block for computing a derivative covariation matrix over each pixel neighborhood
     double maxOverlap = 0.0; // max. permissible overlap between two features in %
@@ -239,7 +244,6 @@ void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool b
         keypoints.push_back(newKeyPoint);
     }
     t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
-    cout << "Shi-Tomasi detection with n=" << keypoints.size() << " keypoints in " << 1000 * t / 1.0 << " ms" << endl;
 
     // visualize results
     if (bVis)
@@ -255,7 +259,6 @@ void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool b
 
 void detKeypointsHarris(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool bVis)
 {
-    std::cout << "Detector: HARRIS" << std::endl;
     // Detector parameters.
     const int block_size = 2;         // For every pixel, a block_size x block_size neighbourhood is considered.
     const int aperture_size = 3;      // Apperture parameter for Sobel operator (must be odd).
@@ -335,27 +338,22 @@ void detKeypointsModern(std::vector<cv::KeyPoint> &keypoints, cv::Mat &img, std:
 
     if (detectorType == "FAST")
     {
-        std::cout << "Detector: FAST" << std::endl;
         detector = cv::FastFeatureDetector::create();
     }
     else if (detectorType == "BRISK")
     {
-        std::cout << "Detector: BRISK" << std::endl;
         detector = cv::BRISK::create();
     }
     else if (detectorType == "ORB")
     {
-        std::cout << "Detector: ORB" << std::endl;
         detector = cv::ORB::create();
     }
     else if (detectorType == "AKAZE")
     {
-        std::cout << "Detector: AKAZE" << std::endl;
         detector = cv::AKAZE::create();
     }
     else if (detectorType == "SIFT")
     {
-        std::cout << "Detector: SIFT" << std::endl;
         detector = cv::xfeatures2d::SIFT::create();
     }
     else

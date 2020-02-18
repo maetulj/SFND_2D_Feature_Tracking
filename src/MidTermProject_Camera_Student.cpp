@@ -23,6 +23,52 @@ using namespace std;
 /* MAIN PROGRAM */
 int main(int argc, const char *argv[])
 {
+    // Input parameters.
+    string detectorType = "HARRIS"; // SHITOMASI; HARRIS; FAST; BRISK; ORB; AKAZE; SIFT
+    string descriptorType = "BRIEF"; // BRISK; BRIEF, ORB, FREAK, AKAZE, SIFT
+    string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
+    string descriptorTypeCat = descriptorType.compare("SIFT") == 0 ? "DES_HOG" : "DES_BINARY"; // DES_BINARY, DES_HOG
+    string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
+    bool bVis = true;            // visualize results
+
+    // Try to read the descriptor/detector type from the command line.
+    // Visualization.
+    if (argc > 1)
+    {
+        const std::string arg = argv[1];
+        bVis = (arg == "true" || arg == "True" || arg == "TRUE");
+    }
+
+    // Detector type.
+    if (argc > 2)
+    {
+        detectorType = argv[2];
+    }
+
+    // // Descriptor type.
+    if (argc > 3)
+    {
+        descriptorType = argv[3];
+    }
+    
+    // Matcher type.
+    if (argc > 4)
+    {
+        matcherType = argv[4];
+    }
+
+    // Selector type.
+    if (argc > 5)
+    {
+        selectorType = argv[5];
+    }
+
+     // Display used paramters.
+    std::cout << "Using detector: " << detectorType << std::endl;
+    std::cout << "Using descriptor: " << descriptorType << std::endl;
+    std::cout << "Using matcher: " << matcherType << std::endl;
+    std::cout << "Using selector: " << selectorType << std::endl;
+
 
     /* INIT VARIABLES AND DATA STRUCTURES */
 
@@ -40,12 +86,13 @@ int main(int argc, const char *argv[])
     constexpr int dataBufferSize = 2;       // no. of images which are held in memory (ring buffer) at the same time
     std::deque<DataFrame> dataBuffer; // Use deque for FIFO ring buffer.
 
-    bool bVis = false;            // visualize results
-
     /* MAIN LOOP OVER ALL IMAGES */
 
     for (size_t imgIndex = 0; imgIndex <= imgEndIndex - imgStartIndex; imgIndex++)
     {
+        size_t pts_total = 0;
+        size_t pts_on_vehicle = 0;
+
         /* LOAD IMAGE INTO BUFFER */
 
         // assemble filenames for current index
@@ -73,23 +120,20 @@ int main(int argc, const char *argv[])
         }
 
         //// EOF STUDENT ASSIGNMENT
-        cout << "#1 : LOAD IMAGE INTO BUFFER done" << endl;
+        // std::cout << "#1 : LOAD IMAGE INTO BUFFER done" << std::endl;
 
         /* DETECT IMAGE KEYPOINTS */
 
         // extract 2D keypoints from current image
         vector<cv::KeyPoint> keypoints; // create empty feature list for current image
-        string detectorType = "FAST"; // SHITOMASI; HARRIS; FAST; BRISK; ORB; AKAZE; SIFT
-        string descriptorType = "SIFT"; // BRISK; BRIEF, ORB, FREAK, AKAZE, SIFT
-        string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-        string descriptorTypeCat = "DES_HOG"; // DES_BINARY, DES_HOG
-        string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
-
 
         //// STUDENT ASSIGNMENT
         //// TASK MP.2 -> add the following keypoint detectors in file matching2D.cpp and enable string-based selection based on detectorType
         //// -> HARRIS, FAST, BRISK, ORB, AKAZE, SIFT
 
+        // Timer for detector speed.
+        const double detector_start = static_cast<double>(cv::getTickCount());
+        
         if (detectorType.compare("SHITOMASI") == 0)
         {
             detKeypointsShiTomasi(keypoints, imgGray, false);
@@ -102,6 +146,10 @@ int main(int argc, const char *argv[])
         {
             detKeypointsModern(keypoints, imgGray, detectorType, false);
         }
+
+        // Detector time.
+        const double detector_time = (static_cast<double>(cv::getTickCount()) - detector_start) / cv::getTickFrequency() * 1000.0 / 1.0;
+
         //// EOF STUDENT ASSIGNMENT
 
         //// STUDENT ASSIGNMENT
@@ -110,11 +158,11 @@ int main(int argc, const char *argv[])
         // only keep keypoints on the preceding vehicle
         const bool bFocusOnVehicle = true;
         const cv::Rect vehicleRect(535, 180, 180, 150);
+
+        pts_total = keypoints.size();
         
         if (bFocusOnVehicle)
         {
-            std::cout << "points total:" << keypoints.size() << std::endl;
-
             std::vector<cv::KeyPoint> contained_points;
 
             for (auto keypoint : keypoints)
@@ -128,8 +176,7 @@ int main(int argc, const char *argv[])
             
             // Save the cropped points to keypoints.
             keypoints = contained_points;
-
-            std::cout << "points on preceding vehicle:" << keypoints.size() << std::endl;
+            pts_on_vehicle = keypoints.size();
         }
 
         //// EOF STUDENT ASSIGNMENT
@@ -146,13 +193,14 @@ int main(int argc, const char *argv[])
             }
 
             cv::KeyPointsFilter::retainBest(keypoints, maxKeypoints);
-            cout << " NOTE: Keypoints have been limited!" << endl;
+            // std::cout << " NOTE: Keypoints have been limited!" << std::endl;
         }
 
         // push keypoints and descriptor for current frame to end of data buffer
         (dataBuffer.end() - 1)->keypoints = keypoints;
-        std::cout << "detected: " << (dataBuffer.end() - 1)->keypoints.size() << " kepyoints" << std::endl;
-        cout << "#2 : DETECT KEYPOINTS done" << endl;
+
+        // std::cout << "detected: " << (dataBuffer.end() - 1)->keypoints.size() << " kepyoints" << std::endl;
+        // cout << "#2 : DETECT KEYPOINTS done" << endl;
 
         /* EXTRACT KEYPOINT DESCRIPTORS */
 
@@ -161,44 +209,58 @@ int main(int argc, const char *argv[])
         //// -> BRIEF, ORB, FREAK, AKAZE, SIFT
 
         cv::Mat descriptors;
-        // string descriptorType = "BRISK"; // BRIEF, ORB, FREAK, AKAZE, SIFT
+
+        // Timer for the descriptor.
+        const double descriptor_start = static_cast<double>(cv::getTickCount());
+
         descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
-        //// EOF STUDENT ASSIGNMENT
+
+        // Descriptor time.
+        const double descriptor_time = (static_cast<double>(cv::getTickCount()) - descriptor_start) / cv::getTickFrequency() * 1000.0 / 1.0;
 
         // push descriptors for current frame to end of data buffer
         (dataBuffer.end() - 1)->descriptors = descriptors;
 
-        cout << "#3 : EXTRACT DESCRIPTORS done" << endl;
+
+        // std::cout << detectorType << " detector took " << detector_time << " ms." << std::endl;
+
+        // std::cout << descriptorType << " descriptor took " << descriptor_time << " ms." << std::endl;
+        // std::cout << detectorType << " | " << descriptorType << " together took " << detector_time + descriptor_time << " ms" << std::endl;
+        //// EOF STUDENT ASSIGNMENT
+        
+
+        // std::cout << "#3 : EXTRACT DESCRIPTORS done" << std::endl;
 
         if (dataBuffer.size() > 1) // wait until at least two images have been processed
         {
 
             /* MATCH KEYPOINT DESCRIPTORS */
-
             vector<cv::DMatch> matches;
-            // string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-            // string descriptorType = "DES_BINARY"; // DES_BINARY, DES_HOG
-            // string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
 
             //// STUDENT ASSIGNMENT
             //// TASK MP.5 -> add FLANN matching in file matching2D.cpp
             //// TASK MP.6 -> add KNN match selection and perform descriptor distance ratio filtering with t=0.8 in file matching2D.cpp
-
-            matchDescriptors((dataBuffer.end() - 2)->keypoints, (dataBuffer.end() - 1)->keypoints,
-                             (dataBuffer.end() - 2)->descriptors, (dataBuffer.end() - 1)->descriptors,
-                             matches, descriptorTypeCat, matcherType, selectorType);
+            matchDescriptors(
+                (dataBuffer.end() - 2)->keypoints, 
+                (dataBuffer.end() - 1)->keypoints,
+                (dataBuffer.end() - 2)->descriptors,
+                (dataBuffer.end() - 1)->descriptors,
+                matches, 
+                descriptorTypeCat, 
+                matcherType, 
+                selectorType
+            );
 
             //// EOF STUDENT ASSIGNMENT
 
             // store matches in current data frame
             (dataBuffer.end() - 1)->kptMatches = matches;
 
-            cout << "#4 : MATCH KEYPOINT DESCRIPTORS done" << endl;
+            // std::cout << "#4 : MATCH KEYPOINT DESCRIPTORS done" << std::endl;
 
-            std::cout << "Detector: " << detectorType << " | Descriptor: " << descriptorType << " | Matcher: " << matcherType << " || " << matches.size() << std::endl;
+            // std::cout << "Detector: " << detectorType << " | Descriptor: " << descriptorType << " | Matcher: " << matcherType << " || Matches: " << (dataBuffer.end() - 1)->kptMatches.size() << std::endl;
 
             // visualize matches between current and previous image
-            bVis = true;
             if (bVis)
             {
                 cv::Mat matchImg = ((dataBuffer.end() - 1)->cameraImg).clone();
@@ -211,11 +273,26 @@ int main(int argc, const char *argv[])
                 string windowName = "Matching keypoints between two camera images";
                 cv::namedWindow(windowName, 7);
                 cv::imshow(windowName, matchImg);
-                cout << "Press key to continue to next image" << endl;
-                cv::waitKey(0); // wait for key to be pressed
+                std::cout << "Press key to continue to next image" << std::endl;
+                
+                // Only if visualization is on wait for key.
+                if (bVis)
+                {
+                    cv::waitKey(0); // wait for key to be pressed
+                }
             }
-            bVis = false;
         }
+
+        // Output the results.
+        std::cout << "Detector:" << detectorType 
+                    << "|Descriptor:" << descriptorType 
+                    << "|Matcher:" << matcherType 
+                    << "|Total:" << pts_total 
+                    << "|Vehicle:" << pts_on_vehicle 
+                    << "|Matches:" << (dataBuffer.end() - 1)->kptMatches.size() 
+                    << "|Time Detector[ms]:" << detector_time
+                    << "|Time Descriptor[ms]:" << descriptor_time
+                    << std::endl;
 
     } // eof loop over all images
 
