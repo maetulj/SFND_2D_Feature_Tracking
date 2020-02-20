@@ -113,7 +113,7 @@ void matchDescriptors(
 
 // Use one of several types of state-of-art descriptors to uniquely identify keypoints
 // Possible descriptors: 
-void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descriptors, string descriptorType)
+void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descriptors, string descriptorType, double& time)
 {
     // select appropriate descriptor
     cv::Ptr<cv::DescriptorExtractor> extractor;
@@ -213,8 +213,13 @@ void descKeypoints(vector<cv::KeyPoint> &keypoints, cv::Mat &img, cv::Mat &descr
         throw std::runtime_error("Descriptor " + descriptorType + " now known to this program.");
     }
 
+    double t = (double)cv::getTickCount();
     // perform feature description
     extractor->compute(img, keypoints, descriptors);
+    t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
+
+    // Return result in ms.
+    time = t * 1000.0;
 }
 
 // Detect keypoints in image using the traditional Shi-Thomasi detector
@@ -230,20 +235,17 @@ void detKeypointsShiTomasi(vector<cv::KeyPoint> &keypoints, cv::Mat &img, bool b
     double k = 0.04;
 
     // Apply corner detection
-    double t = (double)cv::getTickCount();
     vector<cv::Point2f> corners;
     cv::goodFeaturesToTrack(img, corners, maxCorners, qualityLevel, minDistance, cv::Mat(), blockSize, false, k);
 
     // add corners to result vector
     for (auto it = corners.begin(); it != corners.end(); ++it)
     {
-
         cv::KeyPoint newKeyPoint;
         newKeyPoint.pt = cv::Point2f((*it).x, (*it).y);
         newKeyPoint.size = blockSize;
         keypoints.push_back(newKeyPoint);
     }
-    t = ((double)cv::getTickCount() - t) / cv::getTickFrequency();
 
     // visualize results
     if (bVis)

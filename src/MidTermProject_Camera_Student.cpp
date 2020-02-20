@@ -27,7 +27,6 @@ int main(int argc, const char *argv[])
     string detectorType = "HARRIS"; // SHITOMASI; HARRIS; FAST; BRISK; ORB; AKAZE; SIFT
     string descriptorType = "BRIEF"; // BRISK; BRIEF, ORB, FREAK, AKAZE, SIFT
     string matcherType = "MAT_BF";        // MAT_BF, MAT_FLANN
-    string descriptorTypeCat = descriptorType.compare("SIFT") == 0 ? "DES_HOG" : "DES_BINARY"; // DES_BINARY, DES_HOG
     string selectorType = "SEL_NN";       // SEL_NN, SEL_KNN
     bool bVis = true;            // visualize results
 
@@ -68,6 +67,9 @@ int main(int argc, const char *argv[])
     std::cout << "Using descriptor: " << descriptorType << std::endl;
     std::cout << "Using matcher: " << matcherType << std::endl;
     std::cout << "Using selector: " << selectorType << std::endl;
+
+    string descriptorTypeCat = descriptorType.compare("SIFT") == 0 ? "DES_HOG" : "DES_BINARY"; // DES_BINARY, DES_HOG
+    std::cout << "Using descriptor type: " << descriptorTypeCat << std::endl;
 
 
     /* INIT VARIABLES AND DATA STRUCTURES */
@@ -211,12 +213,13 @@ int main(int argc, const char *argv[])
         cv::Mat descriptors;
 
         // Timer for the descriptor.
-        const double descriptor_start = static_cast<double>(cv::getTickCount());
+        // const double descriptor_start = static_cast<double>(cv::getTickCount());
+        double descriptor_time = 0.0;
 
-        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType);
+        descKeypoints((dataBuffer.end() - 1)->keypoints, (dataBuffer.end() - 1)->cameraImg, descriptors, descriptorType, descriptor_time);
 
         // Descriptor time.
-        const double descriptor_time = (static_cast<double>(cv::getTickCount()) - descriptor_start) / cv::getTickFrequency() * 1000.0 / 1.0;
+        // const double descriptor_time = (static_cast<double>(cv::getTickCount()) - descriptor_start) / cv::getTickFrequency() * 1000.0 / 1.0;
 
         // push descriptors for current frame to end of data buffer
         (dataBuffer.end() - 1)->descriptors = descriptors;

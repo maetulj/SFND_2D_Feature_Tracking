@@ -2,6 +2,7 @@
 import subprocess
 import numpy as np
 from matplotlib import pyplot as plt
+import csv
 
 vis = "false"
 
@@ -77,6 +78,7 @@ for line in results:
         detector_results[detector][descriptor]["matches"] = []
         detector_results[detector][descriptor]["time_detector"] = []
         detector_results[detector][descriptor]["time_descriptor"] = []
+        detector_results[detector][descriptor]["image"] = []
 
     detector_results[detector][descriptor]["total"].append(pts_total)
     detector_results[detector][descriptor]["vehicle"].append(pts_vehicle)
@@ -84,91 +86,113 @@ for line in results:
     detector_results[detector][descriptor]["time_detector"].append(detector_time)
     detector_results[detector][descriptor]["time_descriptor"].append(descriptor_time)
 
+    detector_results[detector][descriptor]["image"].append([detector, descriptor, pts_total, pts_vehicle, detector_time, descriptor_time, matches])
+
+print("\nExporting data")
+
+with open("./results/task8_9.csv", mode="w") as csv_file:
+    csv_writer = csv.writer(csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
+
+    csv_writer.writerow(["Detector", "Descriptor", "Image", "Total Keypoints", "Keypoints on vehicle", "Detector Time", "Descriptor Time", "Matches"])
+
+    for detector in detector_results:
+        for descriptor in detector_results[detector]:
+            for idx, image in enumerate(detector_results[detector][descriptor]["image"]):
+                csv_writer.writerow([
+                    image[0], 
+                    image[1],
+                    idx,
+                    image[2],
+                    image[3],
+                    image[4],
+                    image[5],
+                    image[6]
+                ])
+            csv_writer.writerow([None])
+
+
 print("\nPlotting fancy plots:")
 
 # Average of total detected points.
 
 for detector in detector_results:
+    # Points detected in images for this detector.
+    pts_total = []
+    pts_vehicle = []
 
-    def autolabel(rects):
-        for rect in rects:
-            height = rect.get_height()
-            ax.annotate("{}".format(height), xy=(rect.get_x() + rect.get_width(), height), xytext=(0, 3), textcoords="offset points", ha="center", va="bottom")
+    descriptors = []
+    detector_time = []
+    descriptor_time = []
+    matches = []
 
-    # Points total, points on vehicle and matches
-    labels = []
-    avgs_total = []
-    avgs_vehicle = []
-    avgs_matches = []
-    avgs_detector_times = []
-    avgs_descriptor_times = []
-
+    # Points are equal for each descriptor.
     for descriptor in detector_results[detector]:
-        labels.append(descriptor)
+        detector_image_time = []
+        for image in detector_results[detector][descriptor]:
+            pts_total = detector_results[detector][descriptor]["total"]
+            pts_vehicle = detector_results[detector][descriptor]["vehicle"]
 
-        total = np.array(detector_results[detector][descriptor]["total"]).astype(np.float)
-        avgs_total.append(np.mean(total))
+        if descriptor not in descriptors:
+            descriptors.append(descriptor)
 
-        vehicle = np.array(detector_results[detector][descriptor]["vehicle"]).astype(np.float)
-        avgs_vehicle.append(np.mean(vehicle))
+        detector_time = detector_results[detector][descriptor]["time_detector"]
 
-        matches = np.array(detector_results[detector][descriptor]["matches"]).astype(np.float)
-        avgs_matches.append(np.mean(matches))
+        time = np.array(detector_results[detector][descriptor]["time_descriptor"]).astype(np.float)
+        descriptor_time.append(np.mean(time))
 
-        detector_times = np.array(detector_results[detector][descriptor]["time_detector"]).astype(np.float)
-        avgs_detector_times.append(np.round(np.mean(detector_times), 2))
+        matches.append(detector_results[detector][descriptor]["matches"])
+    
+    # Points in image.
+    fig, ((ax, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 8))
 
-        descriptor_times = np.array(detector_results[detector][descriptor]["time_descriptor"]).astype(np.float)
-        avgs_descriptor_times.append(np.round(np.mean(descriptor_times), 2))
+    # Total points.
+    color = "tab:red"
+    ax.set_xlabel("Image")
+    ax.set_ylabel("Number of points detected in image", color=color)
+    ax.plot(np.array(pts_total).astype(np.float), color=color)
+    ax.tick_params(axis="y", labelcolor=color)
 
-    x = np.arange(len(labels))
-    width = 0.3
+    ax.set_xticks(range(0, 10))
 
-    # Plot bar graph for points total, points on vehicle and matches
-    fig, ax = plt.subplots()
-    rects_total = ax.bar(x - width / 2, avgs_total, width / 3, label="Total")
-    rects_vehicle = ax.bar(x, avgs_vehicle, width / 3, label="On Vehicle")
-    rects_matches = ax.bar(x + width / 2, avgs_matches, width  / 3, label="Matches")
+    # Number of points on vehicle.
+    color = "tab:blue"
+    ax_right = ax.twinx()
+    ax_right.set_ylabel("Number of points detected on vehicle", color=color)
+    ax_right.plot(pts_vehicle, color=color)
+    ax_right.tick_params(axis="y", labelcolor=color)
+    ax.set_title("{} detector".format(detector))
+    plt.draw()
 
-    ax.set_ylabel("Mean number of points")
-    ax.set_title("{}: Mean of Points Detected".format(detector))
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.legend()
+    # Detector time
+    ax2.set_title("{} detector time".format(detector))
+    ax2.set_xticks(range(0, 10))
+    ax2.set_xlabel("Image")
+    ax2.set_ylabel("Average time of the detector [ms]")
+    ax2.plot(detector_time)
+    plt.draw()
 
-    autolabel(rects_total)
-    autolabel(rects_vehicle)
-    autolabel(rects_matches)
+    # Descriptor time
+    ax3.set_title("Average descriptor time with {} detector".format(detector))
+    ax3.set_xticks(np.arange(len(descriptors)))
+    ax3.set_xticklabels(descriptors)
+    ax3.set_ylabel("Average time of the descriptor [ms]")
+    ax3.plot(descriptor_time)
+    plt.draw()
+
+    ax4.set_title("Matched points with {} detector\nNote: First image skipped".format(detector))
+    ax4.set_xticks(range(0, 10))
+    ax4.set_xticklabels(range(1, 10))
+    ax4.set_ylabel("Matched points")
+    for match in matches:
+        ax4.plot(np.array(match).astype(np.float)[1:])
+
+    ax4.legend(descriptors)
+    plt.draw()
 
     fig.tight_layout()
     fig.canvas.set_window_title("{}".format(detector))
-    plt.draw()
-
-    # Save to file.
-    plt.savefig("./results/mean_points_{}.png".format(detector))
-
-    # Ploat bar graph for time for detector and descriptor
-    fig, ax = plt.subplots()
-    rects_total = ax.bar(x - width / 2, avgs_detector_times, width, label="Detector")
-    rects_vehicle = ax.bar(x + width / 2, avgs_descriptor_times, width, label="Descriptor")
-
-    ax.set_ylabel("Mean time [ms]")
-    ax.set_title("{}: Detector and Descriptor Processing Times".format(detector))
-    ax.set_xticks(x)
-    ax.set_xticklabels(labels)
-    ax.legend()
-
-    autolabel(rects_total)
-    autolabel(rects_vehicle)
-    autolabel(rects_matches)
-
-    fig.tight_layout()
-    fig.canvas.set_window_title("{}".format(detector))
-    plt.draw()
-
-    # Save to file.
-    plt.savefig("./results/computing_times_{}.png".format(detector))
-
+    plt.savefig("./results/{}.png".format(detector))
 plt.show()
+
 
 print("Finished")
