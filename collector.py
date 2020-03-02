@@ -68,6 +68,8 @@ for line in results:
     detector_time = combination_results[6].split(":")[1]
     # Eighth element is the time for descriptor.
     descriptor_time = combination_results[7].split(":")[1]
+    # Ninth element is time together.
+    time_together = float(detector_time) + float(descriptor_time)
 
     # Join them together.
     if detector not in detector_results:
@@ -81,6 +83,7 @@ for line in results:
         detector_results[detector][descriptor]["matches"] = []
         detector_results[detector][descriptor]["time_detector"] = []
         detector_results[detector][descriptor]["time_descriptor"] = []
+        detector_results[detector][descriptor]["time_together"] = []
         detector_results[detector][descriptor]["image"] = []
 
     detector_results[detector][descriptor]["total"].append(pts_total)
@@ -89,15 +92,16 @@ for line in results:
     detector_results[detector][descriptor]["matches"].append(matches)
     detector_results[detector][descriptor]["time_detector"].append(detector_time)
     detector_results[detector][descriptor]["time_descriptor"].append(descriptor_time)
+    detector_results[detector][descriptor]["time_together"].append(time_together)
 
-    detector_results[detector][descriptor]["image"].append([detector, descriptor, pts_total, pts_vehicle, ratio, detector_time, descriptor_time, matches])
+    detector_results[detector][descriptor]["image"].append([detector, descriptor, pts_total, pts_vehicle, ratio, detector_time, descriptor_time, time_together, matches])
 
 print("\nExporting data")
 
 with open("./results/task7_8_9.csv", mode="w") as csv_file:
     csv_writer = csv.writer(csv_file, delimiter=",", quotechar='"', quoting=csv.QUOTE_MINIMAL)
 
-    csv_writer.writerow(["Detector", "Descriptor", "Image", "Total Keypoints", "Keypoints on vehicle", "Ratio", "Detector Time", "Descriptor Time", "Matches"])
+    csv_writer.writerow(["Detector", "Descriptor", "Image", "Total Keypoints", "Keypoints on vehicle", "Ratio", "Detector Time", "Descriptor Time", "Time Together", "Matches"])
 
     for detector in detector_results:
         for descriptor in detector_results[detector]:
@@ -111,7 +115,8 @@ with open("./results/task7_8_9.csv", mode="w") as csv_file:
                     image[4],
                     image[5],
                     image[6],
-                    image[7]
+                    image[7],
+                    image[8]
                 ])
 
             # Append the average.
@@ -124,6 +129,7 @@ with open("./results/task7_8_9.csv", mode="w") as csv_file:
                 np.mean(np.array(detector_results[detector][descriptor]["ratio"]).astype(float)),
                 np.mean(np.array(detector_results[detector][descriptor]["time_detector"]).astype(float)),
                 np.mean(np.array(detector_results[detector][descriptor]["time_descriptor"]).astype(float)),
+                np.mean(np.array(detector_results[detector][descriptor]["time_together"]).astype(float)),
                 np.mean(np.array(detector_results[detector][descriptor]["matches"]).astype(float))
             ])
             csv_writer.writerow([None])
@@ -141,13 +147,14 @@ for detector in detector_results:
     detector_time = []
     descriptor_time = []
     matches = []
+    time_together = []
 
     # Points are equal for each descriptor.
     for descriptor in detector_results[detector]:
         detector_image_time = []
         for image in detector_results[detector][descriptor]:
-            pts_total = detector_results[detector][descriptor]["total"]
-            pts_vehicle = detector_results[detector][descriptor]["vehicle"]
+            pts_total = np.array(detector_results[detector][descriptor]["total"]).astype(np.float)
+            pts_vehicle = np.array(detector_results[detector][descriptor]["vehicle"]).astype(np.float)
 
         if descriptor not in descriptors:
             descriptors.append(descriptor)
@@ -158,6 +165,8 @@ for detector in detector_results:
         descriptor_time.append(np.mean(time))
 
         matches.append(detector_results[detector][descriptor]["matches"])
+
+        time_together.append(np.mean(detector_results[detector][descriptor]["time_together"]))
     
     # Points in image.
     fig, ((ax, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(14, 8))
@@ -192,8 +201,8 @@ for detector in detector_results:
     ax3.set_title("Average detector and descriptor time with {} detector".format(detector))
     ax3.set_xticks(np.arange(len(descriptors)))
     ax3.set_xticklabels(descriptors)
-    ax3.set_ylabel("Average time of the descriptor [ms]")
-    ax3.plot(np.array(descriptor_time).astype(float) + np.mean(np.array(detector_time).astype(float)))
+    ax3.set_ylabel("Average time of the {} detector and descriptor [ms]".format(detector))
+    ax3.plot(time_together)
     plt.draw()
 
     ax4.set_title("Matched points with {} detector\nNote: First image skipped".format(detector))
