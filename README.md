@@ -123,7 +123,7 @@ The results can be seen on the following chart:
 
 The final task of this mid-term project was to propose TOP3 combinations of detectors and descriptors.
 
-Of course it would be simple to just search for the fastest combination. But for the given usecase it is of importance for the combination to detect as much keypoints on the vehicle in front while also not bein too slow.
+Of course it would be simple to just search for the fastest combination. But for the given usecase it is of importance for the combination to detect as much keypoints on the vehicle in front while also not being too slow.
 
 Since in most cases the detector was the slowest part, here is a list of all detectors, their times and average ratio (ratio between keypoints on the vehicle of interest and total keypoints in image):
 
